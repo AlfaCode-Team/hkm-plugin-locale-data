@@ -1,0 +1,47 @@
+{
+    "name": "locale-data",
+    "version": "0.1.0",
+    "kernel": "^1.3.3",
+    "solves": "locale.data",
+    "type": "module",
+
+    "requires": [],
+
+    "exposes": [
+        "Plugins\\LocaleData\\API\\Contracts\\LocaleDataContract"
+    ],
+
+    "routes": [],
+    "emits": [],
+    "files": [],
+
+    "documentation": "Countries, continents, currencies and languages — localized, and DERIVED from the system's own CLDR through ext-intl rather than from a table in this repository. Country names in any of ICU's locales, ISO 3166-1 alpha-2/alpha-3/numeric codes, the seven-continent grouping, EU membership, ISO 4217 currencies with their localized symbols and their DECIMAL DIGITS, and the ISO 639-1 languages with their native names. No database table and no migration.",
+
+    "//why-derive-not-ship": "A shipped table of 250 countries, 153 currencies and 181 languages is ~600 lines of literal data, and the problem is not its size: it CANNOT BE VERIFIED. Every value would be typed from memory, and a mistake in reference data is invisible — nothing fails, the wrong ISO-3 code is simply sent to a correspondent bank that rejects the payment a week later. It also could not be localized (250 countries × ten locales is 2,500 strings translated by nobody, when the OS already has them in ninety) and would go stale silently. So everything CLDR carries is read from CLDR.",
+
+    "//what-is-shipped": "Exactly two things. The EU member list, because CLDR genuinely does not have it — territoryContainment has no EU key, which was checked rather than assumed — and it decides real behaviour (VAT, GDPR, SCA). And the seven-continent assembly, which is a DEFINITION rather than data: CLDR has the five UN M49 macro-regions and no Antarctica, so NA is assembled from 021+013+029, SA from 005, and AQ is the single place this plugin overrides CLDR's placement (CLDR files Antarctica under Outlying Oceania).",
+
+    "//the-cost": "THE DATA IS ONLY AS CURRENT AS THE SYSTEM'S ICU. Two servers on different ICU versions can return different country NAMES for the same code — codes never move, but 'Turkey' became 'Türkiye' in CLDR 42. describe() reports the ICU version for exactly that reason, and the cache key carries it so an ICU upgrade invalidates rather than serving last week's names for a day.",
+
+    "//ext-intl-is-required": "Not optional, and there is no fallback path — the alternative is the unverifiable table above. Declared in composer.json; IcuLocaleCatalogue checks it at construction so a deployment without it fails when the module is wired rather than on the first request that happens to list countries.",
+
+    "//not-locale-negotiation": "Deciding WHICH language a visitor gets is i18n.translation's job: it negotiates Accept-Language against APP_LOCALES and sets the active locale. This plugin takes a locale as an argument and says what things are called in it. They pair up and neither does the other's work.",
+
+    "//no-geolocation": "Appwrite's /locale endpoint resolves a visitor's country from their IP using a bundled MaxMind GeoLite2 database. That is a 60 MB binary with a licence requiring attribution and periodic updates, and shipping one inside a composer package would mean every install carries it and every install serves whatever snapshot was vendored. An application that needs IP geolocation should bind its own provider.",
+
+    "//no-dial-codes": "Appwrite has /locale/countries/phones. This plugin does NOT, and that is a considered omission rather than an oversight: ICU dropped telephoneCodeData, so there is no authoritative offline source here, and ~250 hand-written dial codes would be reference data that LOOKS authoritative while being wrong in a dozen places — and a wrong dial code means a user cannot be reached. libphonenumber is the right source; an application needing them should use it.",
+
+    "//no-routes": "Reference data is read by a project's own pages and APIs, which shape it to their own response envelope and cache it at their own edge. Shipping GET /locale/countries would impose a response shape and a caching policy on every consumer to save them three lines of controller.",
+
+    "commands": [
+        "Plugins\\LocaleData\\Infrastructure\\Cli\\LocaleDataCommand"
+    ],
+
+    "//app-locale-is-declared-because-it-is-read": "LOCALE_DATA_DEFAULT falls through to APP_LOCALE, so APP_LOCALE is declared here even though it belongs to the application and is also declared by i18n.translation. Every var a module READS has to appear in its config[], and `hkm plugins enable` adds only what the project's .env does not already mention — so a shared declaration cannot clobber anything. It is optional with NO default, which seeds it commented out: an empty value would be read as the string '' and silently beat this plugin's own fallback chain.",
+
+    "config": [
+        { "key": "LOCALE_DATA_DEFAULT", "type": "string", "required": false, "default": "en" },
+        { "key": "LOCALE_DATA_CACHE_TTL", "type": "int", "required": false, "default": 86400 },
+        { "key": "APP_LOCALE", "type": "string", "required": false }
+    ]
+}
